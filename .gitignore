@@ -5,6 +5,11 @@
 # This .gitignore file should be placed at the root of your Unity project directory
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
+NEXUS/Library/
+NEXUS/Temp/
+NEXUS/Obj/
+NEXUS/Logs/
+NEXUS/UserSettings/
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
