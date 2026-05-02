@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="hero-card" class="hero-card" picking-mode="Position" focusable="true">
+        <ui:VisualElement name="card-image-container" class="card-image-container">
+            <ui:VisualElement name="card-image" class="card-image" />
+            <ui:Label name="card-initials" text="??" class="card-initials" />
+            <ui:Label name="card-badge" text="GUERRERO" class="card-badge badge-gold" />
+        </ui:VisualElement>
+        <ui:VisualElement class="card-info">
+            <ui:Label name="card-name" text="Nombre" class="card-name" />
+            <ui:Label name="card-sub" text="Clase · Nivel 1" class="card-sub" />
+            <ui:VisualElement class="card-stats-row">
+                <ui:Label name="card-vida" text="V 50" class="card-stat card-stat-red" />
+                <ui:Label name="card-atk" text="A 50" class="card-stat card-stat-gold" />
+                <ui:Label name="card-def" text="D 50" class="card-stat card-stat-blue" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
