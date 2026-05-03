@@ -1,19 +1,40 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/UI_Toolking/Styles/NexusStyles.uss?fileID=7433441132597879392&amp;guid=bf644e1516894634da23cd67df7fd6b2&amp;type=3#NexusStyles" />
     <ui:VisualElement name="root" class="nexus-root">
+
+        <!-- HEADER -->
         <ui:VisualElement name="header" class="header">
             <ui:Label name="logo" text="NEXUS" class="header-logo" />
             <ui:Label name="faction-label" text="FACCION: Los Inmortales" class="header-faction" />
             <ui:Button name="btn-save" text="Guardar" class="btn-save" />
         </ui:VisualElement>
+
+        <!-- TAB BAR -->
         <ui:VisualElement name="tab-bar" class="tab-bar">
             <ui:Button name="tab-heroes" text="Heroes" focusable="true" class="tab tab--active" />
             <ui:Button name="tab-new" text="Nuevo Heroe" focusable="true" class="tab" />
             <ui:Button name="tab-stats" text="Cuartel General" focusable="true" class="tab" />
         </ui:VisualElement>
+
+        <!-- PANEL 1: HEROES -->
         <ui:VisualElement name="panel-heroes" class="panel panel--active">
-            <ui:TextField name="search-field" placeholder-text="Buscar heroe..." class="search-bar" />
-            <ui:VisualElement name="hero-grid" class="hero-grid" />
+
+            <!-- BUSQUEDA + CONTADOR -->
+            <ui:VisualElement class="search-row">
+                <ui:TextField name="search-field" placeholder-text="Buscar heroe..." class="search-bar" />
+                <ui:Label name="hero-counter" text="0 heroes  |  1/1" class="grid-counter" />
+            </ui:VisualElement>
+
+            <!-- GRID CON NAVEGACION -->
+            <ui:VisualElement class="hero-grid-scroll">
+                <ui:VisualElement class="hero-grid-row">
+                    <ui:Button name="btn-prev" text="&lt;" class="grid-nav-btn" />
+                    <ui:VisualElement name="hero-grid" class="hero-grid" />
+                    <ui:Button name="btn-next" text="&gt;" class="grid-nav-btn" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- PANEL DETALLE -->
             <ui:VisualElement name="detail-panel" class="detail-panel">
                 <ui:VisualElement name="detail-avatar" class="detail-avatar">
                     <ui:Label name="detail-initials" text="??" class="detail-avatar-initials" />
@@ -23,23 +44,17 @@
                     <ui:Label name="detail-sub" class="detail-sub" />
                     <ui:VisualElement class="stat-row">
                         <ui:Label text="VIDA" class="stat-label" />
-                        <ui:VisualElement class="stat-bar-bg">
-                            <ui:VisualElement name="bar-vida" class="stat-bar-fill" />
-                        </ui:VisualElement>
+                        <StatBarControl name="bar-vida" value="0" bar-color="#C94C4C" class="stat-bar-control" />
                         <ui:Label name="val-vida" text="0" class="stat-value" style="color: rgb(201, 76, 76);" />
                     </ui:VisualElement>
                     <ui:VisualElement class="stat-row">
                         <ui:Label text="ATAQUE" class="stat-label" />
-                        <ui:VisualElement class="stat-bar-bg">
-                            <ui:VisualElement name="bar-atk" class="stat-bar-fill" />
-                        </ui:VisualElement>
+                        <StatBarControl name="bar-atk" value="0" bar-color="#C9A84C" class="stat-bar-control" />
                         <ui:Label name="val-atk" text="0" class="stat-value" style="color: rgb(201, 168, 76);" />
                     </ui:VisualElement>
                     <ui:VisualElement class="stat-row">
                         <ui:Label text="DEFENSA" class="stat-label" />
-                        <ui:VisualElement class="stat-bar-bg">
-                            <ui:VisualElement name="bar-def" class="stat-bar-fill" />
-                        </ui:VisualElement>
+                        <StatBarControl name="bar-def" value="0" bar-color="#4C7BC9" class="stat-bar-control" />
                         <ui:Label name="val-def" text="0" class="stat-value" style="color: rgb(76, 123, 201);" />
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -49,16 +64,18 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+
         <!-- PANEL 2: NUEVO HEROE -->
         <ui:VisualElement name="panel-new" class="panel">
             <ui:VisualElement name="form-container" class="form-container">
                 <ui:Label text="Registrar Nuevo Heroe" class="form-title" />
+
                 <ui:Label text="NOMBRE" class="form-label" />
                 <ui:TextField name="input-name" placeholder-text="Nombre del heroe" class="form-field" />
+
                 <ui:Label text="CLASE" class="form-label" />
-                <ui:DropdownField name="input-class" class="form-field"
-                    choices="Guerrero,Mago,Arquero,Paladin" index="0" />
-                <!-- NIVEL CON FLECHAS -->
+                <ui:DropdownField name="input-class" class="form-field" choices="Guerrero,Mago,Arquero,Paladin" index="0" />
+
                 <ui:Label text="NIVEL" class="form-label" />
                 <ui:VisualElement class="level-row">
                     <ui:Label name="level-display" text="1" class="level-value" />
@@ -67,34 +84,42 @@
                         <ui:Button name="btn-level-down" text="▼" class="btn-arrow" />
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <!-- DOS COLUMNAS: imagen izq, stats dcha -->
+
                 <ui:VisualElement class="form-bottom-row">
-                    <!-- COLUMNA IZQUIERDA: preview imagen -->
                     <ui:VisualElement class="image-preview-col">
                         <ui:Button name="btn-examine-image" text="Examinar imagen" class="btn-examine" />
                         <ui:VisualElement name="image-preview" class="image-preview-box">
                             <ui:Label text="Sin imagen" class="image-preview-placeholder" />
                         </ui:VisualElement>
                     </ui:VisualElement>
-                    <!-- COLUMNA DERECHA: boton imagen + sliders -->
                     <ui:VisualElement class="stats-col">
                         <ui:Button name="btn-pick-image" text="Seleccionar imagen PNG" class="btn-pick" />
                         <ui:Label name="image-name-label" text="Ninguna seleccionada" class="image-name-label" />
 
                         <ui:Label text="VIDA" class="form-label" />
-                        <ui:SliderInt name="input-vida" low-value="1" high-value="100" value="50" class="form-field" />
+                        <ui:VisualElement class="slider-row">
+                            <ui:SliderInt name="input-vida" low-value="1" high-value="100" value="50" class="form-slider" />
+                            <ui:Label name="val-input-vida" text="50" class="slider-val" />
+                        </ui:VisualElement>
 
                         <ui:Label text="ATAQUE" class="form-label" />
-                        <ui:SliderInt name="input-atk" low-value="1" high-value="100" value="50" class="form-field" />
+                        <ui:VisualElement class="slider-row">
+                            <ui:SliderInt name="input-atk" low-value="1" high-value="100" value="50" class="form-slider" />
+                            <ui:Label name="val-input-atk" text="50" class="slider-val" />
+                        </ui:VisualElement>
 
                         <ui:Label text="DEFENSA" class="form-label" />
-                        <ui:SliderInt name="input-def" low-value="1" high-value="100" value="50" class="form-field" />
+                        <ui:VisualElement class="slider-row">
+                            <ui:SliderInt name="input-def" low-value="1" high-value="100" value="50" class="form-slider" />
+                            <ui:Label name="val-input-def" text="50" class="slider-val" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
-            <!-- BOTON AÑADIR: esquina inferior derecha -->
             <ui:Button name="btn-add" text="Añadir a la Faccion" class="btn-add-fixed" />
         </ui:VisualElement>
+
+        <!-- PANEL 3: CUARTEL GENERAL -->
         <ui:VisualElement name="panel-stats" class="panel">
             <ui:Label text="Cuartel General" class="detail-name" style="margin-bottom: 4px;" />
             <ui:Label text="Estadisticas globales de tu faccion" class="detail-sub" style="margin-bottom: 16px;" />
@@ -118,13 +143,16 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement class="table-header">
-                <ui:Label text="NOMBRE" class="table-col-header" style="flex-grow: 2;" />
-                <ui:Label text="CLASE" class="table-col-header" style="flex-grow: 1;" />
-                <ui:Label text="NIVEL" class="table-col-header" style="flex-grow: 1;" />
-                <ui:Label text="PODER" class="table-col-header" style="flex-grow: 1;" />
+                <ui:Label text="NOMBRE" class="table-col-header table-col-nombre" />
+                <ui:Label text="CLASE" class="table-col-header table-col-clase" />
+                <ui:Label text="NIVEL" class="table-col-header table-col-nivel" />
+                <ui:Label text="PODER" class="table-col-header table-col-poder" />
             </ui:VisualElement>
             <ui:VisualElement name="table-body" />
         </ui:VisualElement>
+
+        <!-- FEEDBACK -->
         <ui:Label name="feedback-msg" text="Guardado correctamente" class="feedback-msg" />
+
     </ui:VisualElement>
 </ui:UXML>

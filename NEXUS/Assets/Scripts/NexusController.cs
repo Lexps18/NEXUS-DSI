@@ -6,45 +6,44 @@ using UnityEngine.UIElements;
 
 public class NexusController : MonoBehaviour
 {
-    // Datos
     private List<HeroData> _heroes = new();
     private HeroData _selected;
     private int _currentLevel = 1;
     private string _pickedImagePath = "";
 
-    // Root
     private VisualElement root;
 
-    // Tabs y paneles
     private Button tabHeroes, tabNew, tabStats;
     private VisualElement panelHeroes, panelNew, panelStats;
 
-    // Panel heroes
     private TextField searchField;
     private VisualElement heroGrid;
     private VisualElement detailPanel;
     private Label detailInitials, detailName, detailSub;
-    private VisualElement barVida, barAtk, barDef;
+    private StatBarControl barVida, barAtk, barDef;
     private Label valVida, valAtk, valDef;
     private Button btnEdit, btnDelete;
 
-    // Formulario
     private TextField inputName;
     private DropdownField inputClass;
     private Label levelDisplay;
     private Button btnLevelUp, btnLevelDown;
     private SliderInt inputVida, inputAtk, inputDef;
+    private Label valInputVida, valInputAtk, valInputDef;
     private Button btnPickImage, btnExamineImage, btnAdd;
     private Label imageNameLabel;
     private VisualElement imagePreview;
 
-    // Stats
     private Label valTotal, valAvgLevel, valBest, valBestSub, valPower;
     private VisualElement tableBody;
 
-    // Feedback
     private Label feedbackMsg;
     private Button btnSave;
+
+    private int _currentPage = 0;
+    private const int CardsPerPage = 5;
+    private Label heroCounter;
+    private Button btnPrev, btnNext;
 
     void OnEnable()
     {
@@ -63,7 +62,6 @@ public class NexusController : MonoBehaviour
 
     void BindAll()
     {
-        // Tabs
         tabHeroes = root.Q<Button>("tab-heroes");
         tabNew = root.Q<Button>("tab-new");
         tabStats = root.Q<Button>("tab-stats");
@@ -75,32 +73,37 @@ public class NexusController : MonoBehaviour
         tabNew.clicked += () => SwitchTab(1);
         tabStats.clicked += () => SwitchTab(2);
 
-        // Guardar
         btnSave = root.Q<Button>("btn-save");
         btnSave.clicked += SaveToJson;
 
-        // Busqueda
         searchField = root.Q<TextField>("search-field");
-        searchField.RegisterValueChangedCallback(e => RefreshHeroGrid());
+        searchField.RegisterValueChangedCallback(e => { _currentPage = 0; RefreshHeroGrid(); });
 
-        // Hero grid y detail
         heroGrid = root.Q<VisualElement>("hero-grid");
+        detailPanel = root.Q<VisualElement>("detail-panel");
         detailInitials = root.Q<Label>("detail-initials");
         detailName = root.Q<Label>("detail-name");
         detailSub = root.Q<Label>("detail-sub");
-        barVida = root.Q<VisualElement>("bar-vida");
-        barAtk = root.Q<VisualElement>("bar-atk");
-        barDef = root.Q<VisualElement>("bar-def");
+        barVida = root.Q<StatBarControl>("bar-vida");
+        barAtk = root.Q<StatBarControl>("bar-atk");
+        barDef = root.Q<StatBarControl>("bar-def");
         valVida = root.Q<Label>("val-vida");
         valAtk = root.Q<Label>("val-atk");
         valDef = root.Q<Label>("val-def");
         btnEdit = root.Q<Button>("btn-edit");
         btnDelete = root.Q<Button>("btn-delete");
 
+        heroCounter = root.Q<Label>("hero-counter");
+        btnPrev = root.Q<Button>("btn-prev");
+        btnNext = root.Q<Button>("btn-next");
+        btnPrev.clicked += () => { _currentPage--; RefreshHeroGrid(); };
+        btnNext.clicked += () => { _currentPage++; RefreshHeroGrid(); };
+
         btnEdit.clicked += OnEditClicked;
         btnDelete.clicked += OnDeleteClicked;
 
-        // Formulario
+        detailPanel.AddToClassList("detail-panel--hidden");
+
         inputName = root.Q<TextField>("input-name");
         inputClass = root.Q<DropdownField>("input-class");
         levelDisplay = root.Q<Label>("level-display");
@@ -109,6 +112,15 @@ public class NexusController : MonoBehaviour
         inputVida = root.Q<SliderInt>("input-vida");
         inputAtk = root.Q<SliderInt>("input-atk");
         inputDef = root.Q<SliderInt>("input-def");
+
+        valInputVida = root.Q<Label>("val-input-vida");
+        valInputAtk = root.Q<Label>("val-input-atk");
+        valInputDef = root.Q<Label>("val-input-def");
+
+        inputVida.RegisterValueChangedCallback(e => valInputVida.text = e.newValue.ToString());
+        inputAtk.RegisterValueChangedCallback(e => valInputAtk.text = e.newValue.ToString());
+        inputDef.RegisterValueChangedCallback(e => valInputDef.text = e.newValue.ToString());
+
         btnPickImage = root.Q<Button>("btn-pick-image");
         btnExamineImage = root.Q<Button>("btn-examine-image");
         imageNameLabel = root.Q<Label>("image-name-label");
@@ -118,9 +130,9 @@ public class NexusController : MonoBehaviour
         btnLevelUp.clicked += () => ChangeLevel(1);
         btnLevelDown.clicked += () => ChangeLevel(-1);
         btnPickImage.clicked += PickImage;
+        btnExamineImage.clicked += ShowImageModal;
         btnAdd.clicked += OnAddHero;
 
-        // Stats
         valTotal = root.Q<Label>("val-total");
         valAvgLevel = root.Q<Label>("val-avg-level");
         valBest = root.Q<Label>("val-best");
@@ -128,7 +140,6 @@ public class NexusController : MonoBehaviour
         valPower = root.Q<Label>("val-power");
         tableBody = root.Q<VisualElement>("table-body");
 
-        // Feedback
         feedbackMsg = root.Q<Label>("feedback-msg");
     }
 
@@ -167,16 +178,32 @@ public class NexusController : MonoBehaviour
         heroGrid.Clear();
         string filter = searchField?.value?.ToLower() ?? "";
 
+        var filtered = new List<HeroData>();
         foreach (var h in _heroes)
         {
             if (!string.IsNullOrEmpty(filter) &&
                 !h.nombre.ToLower().Contains(filter) &&
                 !h.clase.ToLower().Contains(filter))
                 continue;
-
-            var card = CreateCard(h);
-            heroGrid.Add(card);
+            filtered.Add(h);
         }
+
+        int totalPages = Mathf.Max(1, Mathf.CeilToInt(filtered.Count / (float)CardsPerPage));
+        _currentPage = Mathf.Clamp(_currentPage, 0, totalPages - 1);
+
+        int start = _currentPage * CardsPerPage;
+        int end = Mathf.Min(start + CardsPerPage, filtered.Count);
+
+        for (int i = start; i < end; i++)
+            heroGrid.Add(CreateCard(filtered[i]));
+
+        if (heroCounter != null)
+            heroCounter.text = $"{filtered.Count} heroes  |  {_currentPage + 1}/{totalPages}";
+
+        if (btnPrev != null)
+            btnPrev.style.opacity = _currentPage > 0 ? 1f : 0.3f;
+        if (btnNext != null)
+            btnNext.style.opacity = _currentPage < totalPages - 1 ? 1f : 0.3f;
     }
 
     VisualElement CreateCard(HeroData h)
@@ -197,7 +224,6 @@ public class NexusController : MonoBehaviour
         badge.AddToClassList("card-badge");
         badge.AddToClassList(h.BadgeClass());
 
-        // Imagen
         if (!string.IsNullOrEmpty(h.imagenPath) && File.Exists(h.imagenPath))
         {
             var tex = LoadTexture(h.imagenPath);
@@ -211,61 +237,46 @@ public class NexusController : MonoBehaviour
             }
         }
 
-        // Observer: click selecciona heroe
         var cardRoot = card.Q<VisualElement>("hero-card");
         cardRoot.RegisterCallback<ClickEvent>(e => SelectHero(h));
 
         return card;
     }
 
-    // ── OBSERVER: SELECCIÓN ───────────────────────────
+    // ── OBSERVER ──────────────────────────────────────
     void SelectHero(HeroData h)
     {
         _selected = h;
+        detailPanel.RemoveFromClassList("detail-panel--hidden");
 
-        // Quitar seleccion de todas las cards
+        foreach (var c in heroGrid.Children())
+            c.Q<VisualElement>("hero-card")?.RemoveFromClassList("hero-card--selected");
+
         foreach (var c in heroGrid.Children())
         {
             var cr = c.Q<VisualElement>("hero-card");
-            cr?.RemoveFromClassList("hero-card--selected");
-        }
-
-        // Marcar la seleccionada
-        foreach (var c in heroGrid.Children())
-        {
-            var cr = c.Q<VisualElement>("hero-card");
-            var nameLabel = cr?.Q<Label>("card-name");
-            if (nameLabel != null && nameLabel.text == h.nombre)
+            if (cr?.Q<Label>("card-name")?.text == h.nombre)
                 cr.AddToClassList("hero-card--selected");
         }
 
-        // Actualizar panel detalle
         detailInitials.text = h.Iniciales();
         detailName.text = h.nombre;
         detailSub.text = $"{h.clase}  ·  Nivel {h.nivel}";
 
-        float pctV = h.vida / 100f;
-        float pctA = h.ataque / 100f;
-        float pctD = h.defensa / 100f;
-
-        barVida.style.width = new StyleLength(new Length(pctV * 100f, LengthUnit.Percent));
-        barVida.style.backgroundColor = new Color(0.79f, 0.30f, 0.30f);
-        barAtk.style.width = new StyleLength(new Length(pctA * 100f, LengthUnit.Percent));
-        barAtk.style.backgroundColor = new Color(0.79f, 0.66f, 0.30f);
-        barDef.style.width = new StyleLength(new Length(pctD * 100f, LengthUnit.Percent));
-        barDef.style.backgroundColor = new Color(0.30f, 0.48f, 0.79f);
+        barVida.Value = h.vida; barVida.UpdateBar();
+        barAtk.Value = h.ataque; barAtk.UpdateBar();
+        barDef.Value = h.defensa; barDef.UpdateBar();
 
         valVida.text = h.vida.ToString();
         valAtk.text = h.ataque.ToString();
         valDef.text = h.defensa.ToString();
 
-        // Imagen en detalle
+        var avatar = root.Q<VisualElement>("detail-avatar");
         if (!string.IsNullOrEmpty(h.imagenPath) && File.Exists(h.imagenPath))
         {
             var tex = LoadTexture(h.imagenPath);
             if (tex != null)
             {
-                var avatar = root.Q<VisualElement>("detail-avatar");
                 avatar.style.backgroundImage = new StyleBackground(tex);
                 avatar.style.backgroundSize =
                     new StyleBackgroundSize(new BackgroundSize(BackgroundSizeType.Cover));
@@ -274,34 +285,49 @@ public class NexusController : MonoBehaviour
         }
         else
         {
-            var avatar = root.Q<VisualElement>("detail-avatar");
             avatar.style.backgroundImage = StyleKeyword.Null;
             detailInitials.style.display = DisplayStyle.Flex;
         }
     }
 
-    // ── EDITAR / ELIMINAR ────────────────────────────
+    // ── EDITAR / ELIMINAR ─────────────────────────────
     void OnEditClicked()
     {
         if (_selected == null) return;
-        // Rellena el formulario con los datos del heroe seleccionado
-        inputName.value = _selected.nombre;
-        int claseIdx = inputClass.choices.IndexOf(_selected.clase);
-        inputClass.index = claseIdx >= 0 ? claseIdx : 0;
-        _currentLevel = _selected.nivel;
-        levelDisplay.text = _currentLevel.ToString();
-        inputVida.value = _selected.vida;
-        inputAtk.value = _selected.ataque;
-        inputDef.value = _selected.defensa;
-        _pickedImagePath = _selected.imagenPath ?? "";
-        imageNameLabel.text = string.IsNullOrEmpty(_pickedImagePath)
-            ? "Ninguna seleccionada"
-            : Path.GetFileName(_pickedImagePath);
-        // Elimina el heroe para que al añadir lo reemplace
+        var editando = _selected;
         _heroes.Remove(_selected);
         _selected = null;
+        detailPanel.AddToClassList("detail-panel--hidden");
         RefreshHeroGrid();
         SwitchTab(1);
+
+        inputName.value = editando.nombre;
+        int claseIdx = inputClass.choices.IndexOf(editando.clase);
+        inputClass.index = claseIdx >= 0 ? claseIdx : 0;
+        _currentLevel = editando.nivel;
+        levelDisplay.text = _currentLevel.ToString();
+        inputVida.value = editando.vida;
+        inputAtk.value = editando.ataque;
+        inputDef.value = editando.defensa;
+        valInputVida.text = editando.vida.ToString();
+        valInputAtk.text = editando.ataque.ToString();
+        valInputDef.text = editando.defensa.ToString();
+        _pickedImagePath = editando.imagenPath ?? "";
+        imageNameLabel.text = string.IsNullOrEmpty(_pickedImagePath)
+            ? "Ninguna seleccionada" : Path.GetFileName(_pickedImagePath);
+
+        if (!string.IsNullOrEmpty(_pickedImagePath) && File.Exists(_pickedImagePath))
+        {
+            var tex = LoadTexture(_pickedImagePath);
+            if (tex != null && imagePreview != null)
+            {
+                imagePreview.style.backgroundImage = new StyleBackground(tex);
+                imagePreview.style.backgroundSize =
+                    new StyleBackgroundSize(new BackgroundSize(BackgroundSizeType.Cover));
+                var ph = imagePreview.Q<Label>();
+                if (ph != null) ph.style.display = DisplayStyle.None;
+            }
+        }
     }
 
     void OnDeleteClicked()
@@ -309,17 +335,11 @@ public class NexusController : MonoBehaviour
         if (_selected == null) return;
         _heroes.Remove(_selected);
         _selected = null;
-        detailName.text = "Selecciona un heroe";
-        detailSub.text = "";
-        detailInitials.text = "??";
-        barVida.style.width = new StyleLength(new Length(0, LengthUnit.Percent));
-        barAtk.style.width = new StyleLength(new Length(0, LengthUnit.Percent));
-        barDef.style.width = new StyleLength(new Length(0, LengthUnit.Percent));
-        valVida.text = "0"; valAtk.text = "0"; valDef.text = "0";
+        detailPanel.AddToClassList("detail-panel--hidden");
         RefreshHeroGrid();
     }
 
-    // ── FORMULARIO ───────────────────────────────────
+    // ── FORMULARIO ────────────────────────────────────
     void ResetForm()
     {
         if (inputName == null) return;
@@ -330,11 +350,17 @@ public class NexusController : MonoBehaviour
         inputVida.value = 50;
         inputAtk.value = 50;
         inputDef.value = 50;
+        if (valInputVida != null) valInputVida.text = "50";
+        if (valInputAtk != null) valInputAtk.text = "50";
+        if (valInputDef != null) valInputDef.text = "50";
         _pickedImagePath = "";
-        if (imageNameLabel != null)
-            imageNameLabel.text = "Ninguna seleccionada";
+        if (imageNameLabel != null) imageNameLabel.text = "Ninguna seleccionada";
         if (imagePreview != null)
+        {
             imagePreview.style.backgroundImage = StyleKeyword.Null;
+            var ph = imagePreview.Q<Label>();
+            if (ph != null) ph.style.display = DisplayStyle.Flex;
+        }
     }
 
     void ChangeLevel(int delta)
@@ -357,18 +383,58 @@ public class NexusController : MonoBehaviour
                 imagePreview.style.backgroundImage = new StyleBackground(tex);
                 imagePreview.style.backgroundSize =
                     new StyleBackgroundSize(new BackgroundSize(BackgroundSizeType.Cover));
-                var placeholder = imagePreview.Q<Label>();
-                if (placeholder != null)
-                    placeholder.style.display = DisplayStyle.None;
+                var ph = imagePreview.Q<Label>();
+                if (ph != null) ph.style.display = DisplayStyle.None;
             }
         }
 #endif
     }
 
+    void ShowImageModal()
+    {
+        if (string.IsNullOrEmpty(_pickedImagePath) || !File.Exists(_pickedImagePath)) return;
+        var tex = LoadTexture(_pickedImagePath);
+        if (tex == null) return;
+
+        var overlay = new VisualElement();
+        overlay.style.position = Position.Absolute;
+        overlay.style.top = 0; overlay.style.left = 0;
+        overlay.style.right = 0; overlay.style.bottom = 0;
+        overlay.style.backgroundColor = new Color(0, 0, 0, 0.85f);
+        overlay.style.alignItems = Align.Center;
+        overlay.style.justifyContent = Justify.Center;
+
+        var imgEl = new VisualElement();
+        imgEl.style.width = 500; imgEl.style.height = 500;
+        imgEl.style.backgroundImage = new StyleBackground(tex);
+        imgEl.style.backgroundSize =
+            new StyleBackgroundSize(new BackgroundSize(BackgroundSizeType.Contain));
+        imgEl.style.borderTopLeftRadius = 12; imgEl.style.borderTopRightRadius = 12;
+        imgEl.style.borderBottomLeftRadius = 12; imgEl.style.borderBottomRightRadius = 12;
+
+        var btnClose = new Button(() => root.Remove(overlay));
+        btnClose.text = "Cerrar";
+        btnClose.style.marginTop = 16;
+        btnClose.style.backgroundColor = new Color(0.79f, 0.66f, 0.30f);
+        btnClose.style.color = new Color(0.05f, 0.06f, 0.08f);
+        btnClose.style.borderTopWidth = 0; btnClose.style.borderBottomWidth = 0;
+        btnClose.style.borderLeftWidth = 0; btnClose.style.borderRightWidth = 0;
+        btnClose.style.borderTopLeftRadius = 8; btnClose.style.borderTopRightRadius = 8;
+        btnClose.style.borderBottomLeftRadius = 8; btnClose.style.borderBottomRightRadius = 8;
+        btnClose.style.paddingTop = 10; btnClose.style.paddingBottom = 10;
+        btnClose.style.paddingLeft = 32; btnClose.style.paddingRight = 32;
+        btnClose.style.fontSize = 14;
+        btnClose.style.unityFontStyleAndWeight = FontStyle.Bold;
+
+        overlay.Add(imgEl);
+        overlay.Add(btnClose);
+        root.Add(overlay);
+        overlay.RegisterCallback<ClickEvent>(e => { if (e.target == overlay) root.Remove(overlay); });
+    }
+
     void OnAddHero()
     {
         if (string.IsNullOrEmpty(inputName.value)) return;
-
         var h = new HeroData
         {
             id = System.Guid.NewGuid().ToString(),
@@ -380,35 +446,29 @@ public class NexusController : MonoBehaviour
             defensa = inputDef.value,
             imagenPath = _pickedImagePath
         };
-
         _heroes.Add(h);
+        _currentPage = (_heroes.Count - 1) / CardsPerPage;
         RefreshHeroGrid();
         SwitchTab(0);
         SelectHero(h);
     }
 
-    // ── STATS ────────────────────────────────────────
+    // ── STATS ─────────────────────────────────────────
     void RefreshStats()
     {
         valTotal.text = _heroes.Count.ToString();
         if (_heroes.Count == 0)
         {
-            valAvgLevel.text = "0";
-            valBest.text = "-";
-            valBestSub.text = "";
-            valPower.text = "0";
-            tableBody.Clear();
-            return;
+            valAvgLevel.text = "0"; valBest.text = "-";
+            valBestSub.text = ""; valPower.text = "0";
+            tableBody.Clear(); return;
         }
 
-        float avg = 0;
-        int totalPow = 0;
+        float avg = 0; int totalPow = 0;
         HeroData best = _heroes[0];
-
         foreach (var h in _heroes)
         {
-            avg += h.nivel;
-            totalPow += h.Poder;
+            avg += h.nivel; totalPow += h.Poder;
             if (h.Poder > best.Poder) best = h;
         }
 
@@ -417,36 +477,40 @@ public class NexusController : MonoBehaviour
         valBestSub.text = $"{best.clase} · Nivel {best.nivel}";
         valPower.text = totalPow.ToString();
 
-        // Tabla ordenada por poder
         tableBody.Clear();
         var sorted = new List<HeroData>(_heroes);
         sorted.Sort((a, b) => b.Poder.CompareTo(a.Poder));
 
-        foreach (var h in sorted)
+        int maxRows = Mathf.Min(5, sorted.Count);
+        for (int i = 0; i < maxRows; i++)
         {
+            var h = sorted[i];
             var row = new VisualElement();
             row.AddToClassList("table-row");
 
             var nombre = new Label(h.nombre);
-            nombre.style.flexGrow = 2;
+            nombre.AddToClassList("table-col-nombre");
             nombre.style.fontSize = 13;
             nombre.style.color = new Color(0.91f, 0.91f, 0.94f);
 
             var badge = new Label(h.clase.ToUpper());
             badge.AddToClassList("badge");
             badge.AddToClassList(h.BadgeClass());
-            badge.style.flexGrow = 1;
+            badge.AddToClassList("table-col-clase");
+            badge.style.unityTextAlign = TextAnchor.MiddleCenter;
 
             var nivel = new Label(h.nivel.ToString());
-            nivel.style.flexGrow = 1;
+            nivel.AddToClassList("table-col-nivel");
             nivel.style.fontSize = 13;
             nivel.style.color = new Color(0.91f, 0.91f, 0.94f);
+            nivel.style.unityTextAlign = TextAnchor.MiddleCenter;
 
             var poder = new Label(h.Poder.ToString());
-            poder.style.flexGrow = 1;
+            poder.AddToClassList("table-col-poder");
             poder.style.fontSize = 13;
             poder.style.color = new Color(0.79f, 0.66f, 0.30f);
             poder.style.unityFontStyleAndWeight = FontStyle.Bold;
+            poder.style.unityTextAlign = TextAnchor.MiddleCenter;
 
             row.Add(nombre); row.Add(badge);
             row.Add(nivel); row.Add(poder);
@@ -454,7 +518,7 @@ public class NexusController : MonoBehaviour
         }
     }
 
-    // ── JSON ─────────────────────────────────────────
+    // ── JSON ──────────────────────────────────────────
     void SaveToJson()
     {
         var col = new HeroCollection { heroes = _heroes };
@@ -485,7 +549,6 @@ public class NexusController : MonoBehaviour
         feedbackMsg.RemoveFromClassList("feedback-msg--visible");
     }
 
-    // ── UTILIDADES ───────────────────────────────────
     Texture2D LoadTexture(string path)
     {
         byte[] bytes = File.ReadAllBytes(path);
